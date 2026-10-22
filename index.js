@@ -7,9 +7,9 @@ app.use(express.json());
 
 // Instanciar AFIP con tus credenciales de ADM Global
 const afip = new Afip({
-  CUIT: 20369081315, // Tu CUIT emisor registrado en ARCA/AFIP
-  cert: fs.readFileSync('./admglobal.crt', 'utf8'),
-  key: fs.readFileSync('./admglobal.key', 'utf8'),
+  CUIT: 20369081315, // Tu CUIT emisor
+  cert: fs.readFileSync('./admglobal.CRT', 'utf8'),
+  key: fs.readFileSync('./admglobal.PEM', 'utf8'),
   production: true
 });
 
