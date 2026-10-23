@@ -1,15 +1,13 @@
 const express = require('express');
-const Afip = require('afip.js');
+const Afip = require('@afipsdk/afip.js');
 const fs = require('fs');
 const path = require('path');
 
 const app = express();
 app.use(express.json());
 
-const CUIT_EMISOR = 20369081315;
-
 const afip = new Afip({
-  CUIT: CUIT_EMISOR,
+  CUIT: 20369081315,
   cert: fs.readFileSync(path.join(__dirname, 'admglobal.CRT'), 'utf8'),
   key: fs.readFileSync(path.join(__dirname, 'admglobal.PEM'), 'utf8'),
   production: true
@@ -24,7 +22,7 @@ app.post('/consultar-cuit', async (req, res) => {
 
     const cuitNum = parseInt(String(cuit).replace(/\D/g, ''));
 
-    // Consulta en Padrón A13 usando el método nativo de afip.js
+    // Consulta del Padrón A13
     const persona = await afip.RegisterA13.getTaxpayerDetails(cuitNum);
 
     let razonSocial = null;
