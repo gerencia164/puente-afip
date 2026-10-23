@@ -6,12 +6,9 @@ const path = require('path');
 const app = express();
 app.use(express.json());
 
-// CUIT emisor
-const CUIT_EMISOR = 20369081315;
-
-// Inicializar la librería AFIP
+// Inicialización del cliente de AFIP
 const afip = new Afip({
-  CUIT: CUIT_EMISOR,
+  CUIT: 20369081315,
   cert: fs.readFileSync(path.join(__dirname, 'admglobal.CRT'), 'utf8'),
   key: fs.readFileSync(path.join(__dirname, 'admglobal.PEM'), 'utf8'),
   production: true
@@ -26,23 +23,8 @@ app.post('/consultar-cuit', async (req, res) => {
 
     const cuitNum = parseInt(String(cuit).replace(/\D/g, ''));
 
-    // Intentar consulta con el módulo RegisterA13 o RegisterA10
-    let persona = null;
-    
-    // Probar instancia directa de RegisterA13 o RegisterA10
-    if (afip.RegisterA13 && typeof afip.RegisterA13.getTaxpayerDetails === 'function') {
-      persona = await afip.RegisterA13.getTaxpayerDetails(cuitNum);
-    } else if (afip.RegisterA10 && typeof afip.RegisterA10.getTaxpayerDetails === 'function') {
-      persona = await afip.RegisterA10.getTaxpayerDetails(cuitNum);
-    } else {
-      // Llamada directa al WebService ws_sr_padron_a13
-      const optionals = {
-        getTaxpayerDetails: {
-          idPersona: cuitNum
-        }
-      };
-      persona = await afip.getWebService('ws_sr_padron_a13').executeRequest('getTaxpayerDetails', optionals);
-    }
+    // Consulta nativa del SDK de AFIP para Padrón A13
+    const persona = await afip.RegisterA13.getTaxpayerDetails(cuitNum);
 
     let razonSocial = null;
 
@@ -53,19 +35,26 @@ app.post('/consultar-cuit', async (req, res) => {
       } else if (persona.datosGenerales) {
         const dg = persona.datosGenerales;
         razonSocial = dg.razonSocial || `${dg.apellido || ''} ${dg.nombre || ''}`.trim();
-      } else if (persona.razonSocial) {
-        razonSocial = persona.razonSocial;
+      } else if (typeof persona === 'string') {
+        razonSocial = persona;
       }
     }
 
-    if (razonSocial) {
+    if (razonSocial && razonSocial.length > 0) {
       return res.json({ status: 'success', cuit, razonSocial });
     } else {
-      return res.status(404).json({ status: 'error', message: 'No se encontraron datos para el CUIT' });
+      return res.status(404).json({ 
+        status: 'error', 
+        message: 'No se encontraron datos de Razón Social para el CUIT',
+        raw: persona 
+      });
     }
   } catch (error) {
-    console.error('Error AFIP:', error);
-    return res.status(500).json({ status: 'error', message: error.message || error.toString() });
+    console.error('Error al consultar AFIP:', error);
+    return res.status(500).json({ 
+      status: 'error', 
+      message: error.message || error.toString() 
+    });
   }
 });
 
