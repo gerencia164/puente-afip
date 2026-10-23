@@ -6,7 +6,7 @@ const path = require('path');
 const app = express();
 app.use(express.json());
 
-// Inicializar AFIP
+// Inicializar la librería de AFIP
 const afip = new Afip({
   CUIT: 20369081315,
   cert: fs.readFileSync(path.join(__dirname, 'admglobal.CRT'), 'utf8'),
@@ -23,14 +23,19 @@ app.post('/consultar-cuit', async (req, res) => {
 
     const cuitNum = parseInt(String(cuit).replace(/\D/g, ''));
 
-    // Obtener la instancia correcta del padrón A13
-    const padron = afip.use('RegisterA13') || afip.RegisterA13 || afip.registerA13;
-    
-    if (!padron) {
-      throw new Error('No se pudo cargar el módulo RegisterA13 del SDK de AFIP');
-    }
+    // En @afipsdk/afip.js el servicio se accede instanciando RegisterA13 o RegisterA10
+    let persona = null;
 
-    const persona = await padron.getTaxpayerDetails(cuitNum);
+    try {
+      persona = await afip.RegisterA13.getTaxpayerDetails(cuitNum);
+    } catch (e1) {
+      // Intento secundario por si el CUIT corresponde a Padron A10
+      try {
+        persona = await afip.RegisterA10.getTaxpayerDetails(cuitNum);
+      } catch (e2) {
+        throw new Error('Error al consultar Padrón AFIP/ARCA: ' + (e1.message || e1.toString()));
+      }
+    }
 
     let razonSocial = null;
 
