@@ -6,6 +6,7 @@ const path = require('path');
 const app = express();
 app.use(express.json());
 
+// Inicialización de AFIP con los certificados
 const afip = new Afip({
   CUIT: 20369081315,
   cert: fs.readFileSync(path.join(__dirname, 'admglobal.CRT'), 'utf8'),
@@ -22,8 +23,9 @@ app.post('/consultar-cuit', async (req, res) => {
 
     const cuitNum = parseInt(String(cuit).replace(/\D/g, ''));
 
-    // Consulta directa de la persona
-    const persona = await afip.RegisterA13.getTaxpayerDetails(cuitNum);
+    // Consulta del Padrón A13 mediante la llamada genérica al webservice
+    const padronService = afip.WebService('ws_sr_padron_a13');
+    const persona = await padronService.executeRequest('getTaxpayerDetails', { idPersona: cuitNum });
 
     let razonSocial = null;
 
@@ -38,7 +40,7 @@ app.post('/consultar-cuit', async (req, res) => {
     if (razonSocial) {
       return res.json({ status: 'success', cuit, razonSocial });
     } else {
-      return res.status(404).json({ status: 'error', message: 'No se encontraron datos' });
+      return res.status(404).json({ status: 'error', message: 'No se encontraron datos para el CUIT' });
     }
   } catch (error) {
     console.error('Error AFIP:', error);
@@ -47,6 +49,9 @@ app.post('/consultar-cuit', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Servidor puente escuchando en puerto ${PORT}`);
+});
 app.listen(PORT, () => {
   console.log(`Servidor escuchando en puerto ${PORT}`);
 });
