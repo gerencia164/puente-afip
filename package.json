@@ -1,14 +1,13 @@
 {
   "name": "puente-afip",
   "version": "1.0.0",
-  "description": "Puente AFIP",
+  "description": "Puente de consulta AFIP limpio",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
-    "@afipsdk/afip.js": "latest",
     "express": "^4.18.2",
-    "soap": "^1.0.0"
+    "afip-apis": "^1.0.5"
   }
 }
