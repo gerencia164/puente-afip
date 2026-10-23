@@ -1,14 +1,15 @@
 const express = require('express');
-const { Afip } = require('afip-apis');
+const Afip = require('afip.js');
 const fs = require('fs');
 const path = require('path');
 
 const app = express();
 app.use(express.json());
 
-// Inicializar cliente AFIP
+const CUIT_EMISOR = 20369081315;
+
 const afip = new Afip({
-  CUIT: 20369081315,
+  CUIT: CUIT_EMISOR,
   cert: fs.readFileSync(path.join(__dirname, 'admglobal.CRT'), 'utf8'),
   key: fs.readFileSync(path.join(__dirname, 'admglobal.PEM'), 'utf8'),
   production: true
@@ -23,9 +24,8 @@ app.post('/consultar-cuit', async (req, res) => {
 
     const cuitNum = parseInt(String(cuit).replace(/\D/g, ''));
 
-    // Consulta directa de padron A13
-    const padron = afip.use('RegisterA13');
-    const persona = await padron.getTaxpayerDetails(cuitNum);
+    // Consulta en Padrón A13 usando el método nativo de afip.js
+    const persona = await afip.RegisterA13.getTaxpayerDetails(cuitNum);
 
     let razonSocial = null;
 
@@ -50,5 +50,5 @@ app.post('/consultar-cuit', async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Servidor escuchando en puerto ${PORT}`);
+  console.log(`Servidor puente escuchando en puerto ${PORT}`);
 });
