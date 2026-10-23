@@ -22,19 +22,16 @@ app.post('/consultar-cuit', async (req, res) => {
 
     const cuitNum = parseInt(String(cuit).replace(/\D/g, ''));
 
-    // Consulta genérica usando el webservice oficial de padrón A13
-    const padronService = afip.WebService('ws_sr_padron_a13');
-    const response = await padronService.executeRequest('getTaxpayerDetails', {
-      idPersona: cuitNum
-    });
+    // Consulta directa de la persona
+    const persona = await afip.RegisterA13.getTaxpayerDetails(cuitNum);
 
     let razonSocial = null;
 
-    if (response && response.personaReturn && response.personaReturn.persona) {
-      const p = response.personaReturn.persona;
+    if (persona && persona.personaReturn && persona.personaReturn.persona) {
+      const p = persona.personaReturn.persona;
       razonSocial = p.razonSocial || `${p.apellido || ''} ${p.nombre || ''}`.trim();
-    } else if (response && response.datosGenerales) {
-      const dg = response.datosGenerales;
+    } else if (persona && persona.datosGenerales) {
+      const dg = persona.datosGenerales;
       razonSocial = dg.razonSocial || `${dg.apellido || ''} ${dg.nombre || ''}`.trim();
     }
 
