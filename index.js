@@ -6,7 +6,6 @@ const path = require('path');
 const app = express();
 app.use(express.json());
 
-// Inicialización de la librería AFIP
 const afip = new Afip({
   CUIT: 20369081315,
   cert: fs.readFileSync(path.join(__dirname, 'admglobal.CRT'), 'utf8'),
@@ -23,34 +22,23 @@ app.post('/consultar-cuit', async (req, res) => {
 
     const cuitNum = parseInt(String(cuit).replace(/\D/g, ''));
 
-    // Intentar obtener los datos del contribuyente usando las distintas variantes del SDK
-    let persona = null;
-
-    if (afip.RegisterA13) {
-      persona = await afip.RegisterA13.getTaxpayerDetails(cuitNum);
-    } else if (afip.RegisterA10) {
-      persona = await afip.RegisterA10.getTaxpayerDetails(cuitNum);
-    } else {
-      // Método universal mediante la creación de la instancia del servicio
-      const service = afip.use('ws_sr_padron_a13') || afip.use('RegisterA13');
-      persona = await service.getTaxpayerDetails(cuitNum);
-    }
+    // Consulta genérica usando el webservice oficial de padrón A13
+    const padronService = afip.WebService('ws_sr_padron_a13');
+    const response = await padronService.executeRequest('getTaxpayerDetails', {
+      idPersona: cuitNum
+    });
 
     let razonSocial = null;
 
-    if (persona) {
-      if (persona.personaReturn && persona.personaReturn.persona) {
-        const p = persona.personaReturn.persona;
-        razonSocial = p.razonSocial || `${p.apellido || ''} ${p.nombre || ''}`.trim();
-      } else if (persona.datosGenerales) {
-        const dg = persona.datosGenerales;
-        razonSocial = dg.razonSocial || `${dg.apellido || ''} ${dg.nombre || ''}`.trim();
-      } else if (persona.razonSocial) {
-        razonSocial = persona.razonSocial;
-      }
+    if (response && response.personaReturn && response.personaReturn.persona) {
+      const p = response.personaReturn.persona;
+      razonSocial = p.razonSocial || `${p.apellido || ''} ${p.nombre || ''}`.trim();
+    } else if (response && response.datosGenerales) {
+      const dg = response.datosGenerales;
+      razonSocial = dg.razonSocial || `${dg.apellido || ''} ${dg.nombre || ''}`.trim();
     }
 
-    if (razonSocial && razonSocial.length > 0) {
+    if (razonSocial) {
       return res.json({ status: 'success', cuit, razonSocial });
     } else {
       return res.status(404).json({ status: 'error', message: 'No se encontraron datos' });
@@ -63,5 +51,5 @@ app.post('/consultar-cuit', async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Servidor puente escuchando en puerto ${PORT}`);
+  console.log(`Servidor escuchando en puerto ${PORT}`);
 });
