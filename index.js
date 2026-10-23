@@ -6,9 +6,12 @@ const path = require('path');
 const app = express();
 app.use(express.json());
 
-// Inicializar la librería de AFIP
+// CUIT emisor
+const CUIT_EMISOR = 20369081315;
+
+// Inicializar la librería AFIP
 const afip = new Afip({
-  CUIT: 20369081315,
+  CUIT: CUIT_EMISOR,
   cert: fs.readFileSync(path.join(__dirname, 'admglobal.CRT'), 'utf8'),
   key: fs.readFileSync(path.join(__dirname, 'admglobal.PEM'), 'utf8'),
   production: true
@@ -23,28 +26,36 @@ app.post('/consultar-cuit', async (req, res) => {
 
     const cuitNum = parseInt(String(cuit).replace(/\D/g, ''));
 
-    // En @afipsdk/afip.js el servicio se accede instanciando RegisterA13 o RegisterA10
+    // Intentar consulta con el módulo RegisterA13 o RegisterA10
     let persona = null;
-
-    try {
+    
+    // Probar instancia directa de RegisterA13 o RegisterA10
+    if (afip.RegisterA13 && typeof afip.RegisterA13.getTaxpayerDetails === 'function') {
       persona = await afip.RegisterA13.getTaxpayerDetails(cuitNum);
-    } catch (e1) {
-      // Intento secundario por si el CUIT corresponde a Padron A10
-      try {
-        persona = await afip.RegisterA10.getTaxpayerDetails(cuitNum);
-      } catch (e2) {
-        throw new Error('Error al consultar Padrón AFIP/ARCA: ' + (e1.message || e1.toString()));
-      }
+    } else if (afip.RegisterA10 && typeof afip.RegisterA10.getTaxpayerDetails === 'function') {
+      persona = await afip.RegisterA10.getTaxpayerDetails(cuitNum);
+    } else {
+      // Llamada directa al WebService ws_sr_padron_a13
+      const optionals = {
+        getTaxpayerDetails: {
+          idPersona: cuitNum
+        }
+      };
+      persona = await afip.getWebService('ws_sr_padron_a13').executeRequest('getTaxpayerDetails', optionals);
     }
 
     let razonSocial = null;
 
-    if (persona && persona.personaReturn && persona.personaReturn.persona) {
-      const p = persona.personaReturn.persona;
-      razonSocial = p.razonSocial || `${p.apellido || ''} ${p.nombre || ''}`.trim();
-    } else if (persona && persona.datosGenerales) {
-      const dg = persona.datosGenerales;
-      razonSocial = dg.razonSocial || `${dg.apellido || ''} ${dg.nombre || ''}`.trim();
+    if (persona) {
+      if (persona.personaReturn && persona.personaReturn.persona) {
+        const p = persona.personaReturn.persona;
+        razonSocial = p.razonSocial || `${p.apellido || ''} ${p.nombre || ''}`.trim();
+      } else if (persona.datosGenerales) {
+        const dg = persona.datosGenerales;
+        razonSocial = dg.razonSocial || `${dg.apellido || ''} ${dg.nombre || ''}`.trim();
+      } else if (persona.razonSocial) {
+        razonSocial = persona.razonSocial;
+      }
     }
 
     if (razonSocial) {
